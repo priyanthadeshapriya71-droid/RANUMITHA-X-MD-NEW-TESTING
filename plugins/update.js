@@ -19,7 +19,7 @@ cmd({
         await reply("🔍 Checking for update...");
 
         // Fetch latest commit hash from new GitHub repo
-        const { data: commitData } = await axios.get("https://api.github.com/repos/Ranumithaofc/RANUMITHA-X-MD/commits/main");
+        const { data: commitData } = await axios.get("https://api.github.com/repos/udeepaayya/RANUMITHA-X-MD-NEW-TESTING/commits/main");
         const latestCommitHash = commitData.sha;
 
         const currentHash = await getCommitHash();
@@ -31,7 +31,7 @@ cmd({
         await reply("🚀 Updating bot from GitHub...");
 
         const zipPath = path.join(__dirname, "latest.zip");
-        const { data: zipData } = await axios.get("https://github.com/Ranumithaofc/RANUMITHA-X-MD/archive/main.zip", { responseType: "arraybuffer" });
+        const { data: zipData } = await axios.get("https://github.com/udeepaayya/RANUMITHA-X-MD-NEW-TESTING/archive/main.zip", { responseType: "arraybuffer" });
         fs.writeFileSync(zipPath, zipData);
 
         await reply("📦 Extracting the latest code...");
@@ -41,7 +41,7 @@ cmd({
 
         await reply("🔄 Replacing files...");
         // Make sure the inner folder is correctly named:
-        const sourcePath = path.join(extractPath, "RANUMITHA-X-MD-main");
+        const sourcePath = path.join(extractPath, "RANUMITHA-X-MD-NEW-TESTING-main");
         const destinationPath = path.join(__dirname, '..');
         copyFolderSync(sourcePath, destinationPath);
 
@@ -77,4 +77,4 @@ function copyFolderSync(source, target) {
             fs.copyFileSync(srcPath, destPath);
         }
     }
-          }
+}
