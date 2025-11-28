@@ -80,6 +80,6 @@ cmd({
   } catch (err) {
     console.error(err);
     await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
-    reply("❗ Error converting file");
+    reply("*Error*");
   }
 });
