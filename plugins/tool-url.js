@@ -3,67 +3,78 @@ const FormData = require('form-data');
 const fs = require('fs');
 const os = require('os');
 const path = require("path");
-const { cmd, commands } = require("../command");
+const { cmd } = require("../command");
 
 cmd({
-  'pattern': "tourl",
-  'alias': ["imgtourl", "imgurl", "url", "geturl", "upload"],
-  'react': '🖇',
-  'desc': "Convert media to Catbox URL",
-  'category': "utility",
-  'use': ".tourl [reply to media]",
-  'filename': __filename
+  pattern: "tourl",
+  alias: ["imgtourl", "imgurl", "url", "geturl", "upload"],
+  react: '🖇',
+  desc: "Convert media to Catbox URL (Max 200 MB)",
+  category: "utility",
+  use: ".tourl [reply to media]",
+  filename: __filename
 }, async (client, message, args, { reply }) => {
   try {
-    // Check if quoted message exists and has media
+    // Get the media from reply
     const quotedMsg = message.quoted ? message.quoted : message;
     const mimeType = (quotedMsg.msg || quotedMsg).mimetype || '';
-    
-    if (!mimeType) {
-      throw "Please reply to an image, video, or audio file";
+
+    if (!mimeType) throw "Please reply to an image, video, or audio file";
+
+    // Temp file path
+    const tempFilePath = path.join(os.tmpdir(), `catbox_upload_${Date.now()}`);
+
+    // Stream media to temp file
+    const mediaStream = await quotedMsg.download();
+    const writeStream = fs.createWriteStream(tempFilePath);
+    mediaStream.pipe(writeStream);
+    await new Promise(res => writeStream.on('finish', res));
+
+    // Check file size
+    const stats = fs.statSync(tempFilePath);
+    if (stats.size > 200 * 1024 * 1024) { // 200 MB
+      fs.unlinkSync(tempFilePath);
+      throw "File size exceeds 200 MB limit for Catbox";
     }
 
-    // Download the media
-    const mediaBuffer = await quotedMsg.download();
-    const tempFilePath = path.join(os.tmpdir(), `catbox_upload_${Date.now()}`);
-    fs.writeFileSync(tempFilePath, mediaBuffer);
-
-    // Get file extension based on mime type
+    // Determine file extension
     let extension = '';
     if (mimeType.includes('image/jpeg')) extension = '.jpg';
     else if (mimeType.includes('image/png')) extension = '.png';
     else if (mimeType.includes('video')) extension = '.mp4';
     else if (mimeType.includes('audio')) extension = '.mp3';
-    
+    else extension = path.extname(tempFilePath);
+
     const fileName = `file${extension}`;
 
-    // Prepare form data for Catbox
+    // Prepare FormData for Catbox
     const form = new FormData();
     form.append('fileToUpload', fs.createReadStream(tempFilePath), fileName);
     form.append('reqtype', 'fileupload');
 
     // Upload to Catbox
     const response = await axios.post("https://catbox.moe/user/api.php", form, {
-      headers: form.getHeaders()
+      headers: form.getHeaders(),
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
     });
 
-    if (!response.data) {
-      throw "Error uploading to Catbox";
-    }
-
-    const mediaUrl = response.data;
     fs.unlinkSync(tempFilePath);
 
-    // Determine media type for response
+    if (!response.data) throw "Error uploading to Catbox";
+
+    const mediaUrl = response.data;
+
+    // Determine media type for message
     let mediaType = 'File';
     if (mimeType.includes('image')) mediaType = 'Image';
     else if (mimeType.includes('video')) mediaType = 'Video';
     else if (mimeType.includes('audio')) mediaType = 'Audio';
 
-    // Send response
+    // Send reply
     await reply(
       `*${mediaType} Uploaded Successfully*\n\n` +
-      `*Size:* ${formatBytes(mediaBuffer.length)}\n` +
+      `*Size:* ${formatBytes(stats.size)}\n` +
       `*URL:* ${mediaUrl}\n\n` +
       `> © Powerd by 𝗥𝗔𝗡𝗨𝗠𝗜𝗧𝗛𝗔-𝗫-𝗠𝗗 🌛`
     );
@@ -74,7 +85,7 @@ cmd({
   }
 });
 
-// Helper function to format bytes
+// Helper to format bytes
 function formatBytes(bytes) {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
